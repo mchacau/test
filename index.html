@@ -35,6 +35,7 @@ function doqr(){
         if(ajaxRequest.readyState == 4){
             var ajaxDisplay = document.getElementById('ajaxDiv');
             ajaxDisplay.innerHTML = ajaxRequest.responseText;
+            doqr1();
         }
     }
 
@@ -42,8 +43,7 @@ function doqr(){
     ajaxRequest.open("GET", "http://www.mchac.com.au/aktiv/save.php" + queryString, true);
     ajaxRequest.send(null); 
     
-    
-    setTimeout(doqr1,1000);
+
 }
 // alignment pattern
 adelta = [
@@ -779,6 +779,7 @@ function doqr1() {
     qf = genframe(qfd.innerHTML);
     qrc.lineWidth=1;
 
+
     var i,j;
     px = wd;
     if( ht < wd )
@@ -793,6 +794,7 @@ function doqr1() {
         for( j = 0; j < width; j++ )
             if( qf[j*width+i] )
                 qrc.fillRect(px*(4+i),px*(4+j),px,px)
+                
 }
 </script>
 </head>
@@ -804,8 +806,8 @@ age: <input type='text' id='age[]' Name='age[]' />
 <br />
 <input type='button' onclick='doqr()' value='Query MySQL' />
 </form>
-<div id='ajaxDiv'></div>
-    <canvas id="qrcanv"}>No Canvas Support?
+<div id='ajaxDiv'>LOADING</div>
+    <canvas id="qrcanv"}>
 </div>
 
 </body>
