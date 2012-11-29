@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Storage Example</title>
+    <title>Notification Example</title>
 
     <script type="text/javascript" charset="utf-8" src="cordova-2.1.0.js"></script>
     <script type="text/javascript" charset="utf-8">
@@ -13,22 +13,28 @@
     // Cordova is ready
     //
     function onDeviceReady() {
-        window.localStorage.setItem("key", "value");
-        var keyname = window.localStorage.key(i);
-        // keyname is now equal to "key"
-        var value = window.localStorage.getItem("key");
-        // value is now equal to "value"
-        window.localStorage.removeItem("key");
-        window.localStorage.setItem("key2", "value2");
-        window.localStorage.clear();
-        // localStorage is now empty
+        // Empty
     }
 
+    // alert dialog dismissed
+    function alertDismissed() {
+        // do something
+    }
+
+    // Show a custom alert
+    //
+    function showAlert() {
+        navigator.notification.alert(
+            'You are the winner!',  // message
+            alertDismissed,         // callback
+            'Game Over',            // title
+            'Done'                  // buttonName
+        );
+    }
 
     </script>
   </head>
   <body>
-    <h1>Example</h1>
-    <p>localStorage</p>
+    <p><a href="#" onclick="showAlert(); return false;">Show Alert</a></p>
   </body>
 </html>
