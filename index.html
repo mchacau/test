@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Notification Example</title>
+    <title>Device Properties Example</title>
 
     <script type="text/javascript" charset="utf-8" src="cordova-2.2.0.js"></script>
     <script type="text/javascript" charset="utf-8">
@@ -13,25 +13,12 @@
     // Cordova is ready
     //
     function onDeviceReady() {
- navigator.geolocation.getCurrentPosition(onSuccess, onError);
+        navigator.geolocation.getCurrentPosition(onSuccess, onError);
     }
 
-    // alert dialog dismissed
-    function alertDismissed() {
-        // do something
-    }
-
-    // Show a custom alert
+    // onSuccess Geolocation
     //
-    function showAlert() {
-        navigator.notification.alert(
-            'You are the winner!',  // message
-            alertDismissed,         // callback
-            'Game Over',            // title
-            'Done'                  // buttonName
-        );
-    }
-          function onSuccess(position) {
+    function onSuccess(position) {
         var element = document.getElementById('geolocation');
         element.innerHTML = 'Latitude: '           + position.coords.latitude              + '<br />' +
                             'Longitude: '          + position.coords.longitude             + '<br />' +
@@ -53,7 +40,6 @@
     </script>
   </head>
   <body>
-    <p><a href="#" onclick="showAlert(); return false;">Show Alert</a></p>
-   <p id="geolocation">Watching geolocation...</p>
+    <p id="geolocation">Finding geolocation...</p>
   </body>
 </html>
