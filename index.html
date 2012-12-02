@@ -8,20 +8,7 @@
 
     
     // alert dialog dismissed
-    function alertDismissed() {
-        // do something
-    }
 
-    // Show a custom alert
-    //
-    function showAlert() {
-        navigator.notification.alert(
-            'You are the winner!',  // message
-            alertDismissed,         // callback
-            'Game Over',            // title
-            'Done'                  // buttonName
-        );
-    }
 
     function onLoad() {
         document.addEventListener("deviceready", onDeviceReady, false);
@@ -36,7 +23,22 @@
     // Handle the resume event
     //
     function onResume() {
-    showAlert()
+    showAlert();
+    }
+    
+        function alertDismissed() {
+        // do something
+    }
+
+    // Show a custom alert
+    //
+    function showAlert() {
+        navigator.notification.alert(
+            'You are the winner!',  // message
+            alertDismissed,         // callback
+            'Game Over',            // title
+            'Done'                  // buttonName
+        );
     }
 
     </script>
