@@ -20,8 +20,13 @@
         // Throw an error if no update is received every 30 seconds
         var options = { timeout: 30000 };
         watchID = navigator.geolocation.watchPosition(onSuccess, onError, options);
+         document.addEventListener("resume", onResume, false);
     }
 
+   function onResume() {
+   showAlert();
+    }
+    
     // alert dialog dismissed
     function alertDismissed() {
         // do something
