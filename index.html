@@ -1,15 +1,17 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Notification Example</title>
+    <title>Cordova Resume Example</title>
 
     <script type="text/javascript" charset="utf-8" src="cordova-2.2.0.js"></script>
     <script type="text/javascript" charset="utf-8">
 
-    
-    // alert dialog dismissed
-
-
+    // Call onDeviceReady when Cordova is loaded.
+    //
+    // At this point, the document has loaded but cordova-2.2.0.js has not.
+    // When Cordova is loaded and talking with the native device,
+    // it will call the event `deviceready`.
+    //
     function onLoad() {
         document.addEventListener("deviceready", onDeviceReady, false);
     }
@@ -19,18 +21,12 @@
     function onDeviceReady() {
         document.addEventListener("resume", onResume, false);
     }
-
-    // Handle the resume event
-    //
-    function onResume() {
-    showAlert();
-    }
     
         function alertDismissed() {
         // do something
     }
 
-    // Show a custom alert
+    // Show a custom alertDismissed
     //
     function showAlert() {
         navigator.notification.alert(
@@ -41,8 +37,16 @@
         );
     }
 
+    // Handle the resume event
+    //
+    function onResume() {
+    showAlert()
+    }
+
     </script>
   </head>
   <body onload="onLoad()">
+  
+  <p><a href="#" onclick="showAlert(); return false;">Show Alert</a></p>
   </body>
 </html>
