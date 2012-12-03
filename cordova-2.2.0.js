@@ -1,6 +1,10 @@
 // commit 02b91c5313ff37d74a58f71775170afd360f4a1f
 
+<<<<<<< HEAD
+// File generated at :: Wed Oct 31 2012 14:34:26 GMT-0700 (PDT)
+=======
 // File generated at :: Wed Oct 31 2012 10:40:25 GMT-0700 (PDT)
+>>>>>>> parent of 27fe610... update cordove
 
 /*
  Licensed to the Apache Software Foundation (ASF) under one
@@ -912,6 +916,220 @@ module.exports = {
 
 });
 
+<<<<<<< HEAD
+// file: lib/ios/exec.js
+define("cordova/exec", function(require, exports, module) {
+
+    /**
+     * Creates a gap bridge iframe used to notify the native code about queued
+     * commands.
+     *
+     * @private
+     */
+var cordova = require('cordova'),
+    channel = require('cordova/channel'),
+    utils = require('cordova/utils'),
+    jsToNativeModes = {
+        IFRAME_NAV: 0,
+        XHR_NO_PAYLOAD: 1,
+        XHR_WITH_PAYLOAD: 2,
+        XHR_OPTIONAL_PAYLOAD: 3
+    },
+    // XHR mode does not work on iOS 4.2, so default to IFRAME_NAV for such devices.
+    // XHR mode's main advantage is working around a bug in -webkit-scroll, which
+    // doesn't exist in 4.X devices anyways.
+    bridgeMode = navigator.userAgent.indexOf(' 4_') == -1 ? jsToNativeModes.XHR_NO_PAYLOAD : jsToNativeModes.IFRAME_NAV,
+    execIframe,
+    execXhr,
+    requestCount = 0,
+    commandQueue = [], // Contains pending JS->Native messages.
+    isInContextOfEvalJs = 0;
+
+function createExecIframe() {
+    var iframe = document.createElement("iframe");
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    return iframe;
+}
+
+function shouldBundleCommandJson() {
+    if (bridgeMode == jsToNativeModes.XHR_WITH_PAYLOAD) {
+        return true;
+    }
+    if (bridgeMode == jsToNativeModes.XHR_OPTIONAL_PAYLOAD) {
+        var payloadLength = 0;
+        for (var i = 0; i < commandQueue.length; ++i) {
+            payloadLength += commandQueue[i].length;
+        }
+        // The value here was determined using the benchmark within CordovaLibApp on an iPad 3.
+        return payloadLength < 4500;
+    }
+    return false;
+}
+
+function iOSExec() {
+    if (channel.onCordovaReady.state != 2) {
+        utils.alert("ERROR: Attempting to call cordova.exec()" +
+              " before 'deviceready'. Ignoring.");
+        return;
+    }
+
+    var successCallback, failCallback, service, action, actionArgs, splitCommand;
+    var callbackId = null;
+    if (typeof arguments[0] !== "string") {
+        // FORMAT ONE
+        successCallback = arguments[0];
+        failCallback = arguments[1];
+        service = arguments[2];
+        action = arguments[3];
+        actionArgs = arguments[4];
+
+        // Since we need to maintain backwards compatibility, we have to pass
+        // an invalid callbackId even if no callback was provided since plugins
+        // will be expecting it. The Cordova.exec() implementation allocates
+        // an invalid callbackId and passes it even if no callbacks were given.
+        callbackId = 'INVALID';
+    } else {
+        // FORMAT TWO
+        splitCommand = arguments[0].split(".");
+        action = splitCommand.pop();
+        service = splitCommand.join(".");
+        actionArgs = Array.prototype.splice.call(arguments, 1);
+    }
+
+    // Register the callbacks and add the callbackId to the positional
+    // arguments if given.
+    if (successCallback || failCallback) {
+        callbackId = service + cordova.callbackId++;
+        cordova.callbacks[callbackId] =
+            {success:successCallback, fail:failCallback};
+    }
+
+    var command = [callbackId, service, action, actionArgs];
+
+    // Stringify and queue the command. We stringify to command now to
+    // effectively clone the command arguments in case they are mutated before
+    // the command is executed.
+    commandQueue.push(JSON.stringify(command));
+
+    if (!isInContextOfEvalJs) {
+        if (bridgeMode != jsToNativeModes.IFRAME_NAV) {
+            // Re-using the XHR improves exec() performance by about 10%.
+            // It is possible for a native stringByEvaluatingJavascriptFromString call
+            // to cause us to reach this point when a request is already in progress,
+            // so we check the readyState to guard agains re-using an inprogress XHR.
+            // Refer to CB-1404.
+            if (execXhr && execXhr.readyState != 4) {
+                execXhr = null;
+            }
+            execXhr = execXhr || new XMLHttpRequest();
+            // Changing this to a GET will make the XHR reach the URIProtocol on 4.2.
+            // For some reason it still doesn't work though...
+            execXhr.open('HEAD', "/!gap_exec", true);
+            execXhr.setRequestHeader('vc', cordova.iOSVCAddr);
+            execXhr.setRequestHeader('rc', ++requestCount);
+            if (shouldBundleCommandJson()) {
+                execXhr.setRequestHeader('cmds', iOSExec.nativeFetchMessages());
+            }
+            execXhr.send(null);
+        } else {
+            execIframe = execIframe || createExecIframe();
+            execIframe.src = "gap://ready";
+        }
+    }
+}
+
+iOSExec.jsToNativeModes = jsToNativeModes;
+
+iOSExec.setJsToNativeBridgeMode = function(mode) {
+    // Remove the iFrame since it may be no longer required, and its existence
+    // can trigger browser bugs.
+    // https://issues.apache.org/jira/browse/CB-593
+    if (execIframe) {
+        execIframe.parentNode.removeChild(execIframe);
+        execIframe = null;
+    }
+    bridgeMode = mode;
+};
+
+iOSExec.nativeFetchMessages = function() {
+    // Each entry in commandQueue is a JSON string already.
+    if (!commandQueue.length) {
+        return '';
+    }
+    var json = '[' + commandQueue.join(',') + ']';
+    commandQueue.length = 0;
+    return json;
+};
+
+iOSExec.nativeCallback = function(callbackId, status, payload, keepCallback) {
+    return iOSExec.nativeEvalAndFetch(function() {
+        var success = status == 0 || status == 1;
+        cordova.callbackFromNative(callbackId, success, status, payload, keepCallback);
+    });
+};
+
+iOSExec.nativeEvalAndFetch = function(func) {
+    // This shouldn't be nested, but better to be safe.
+    isInContextOfEvalJs++;
+    try {
+        func();
+        return iOSExec.nativeFetchMessages();
+    } finally {
+        isInContextOfEvalJs--;
+    }
+};
+
+module.exports = iOSExec;
+
+});
+
+// file: lib/ios/platform.js
+define("cordova/platform", function(require, exports, module) {
+
+module.exports = {
+    id: "ios",
+    initialize:function() {
+        // iOS doesn't allow reassigning / overriding navigator.geolocation object.
+        // So clobber its methods here instead :)
+        var geo = require('cordova/plugin/geolocation');
+
+        navigator.geolocation.getCurrentPosition = geo.getCurrentPosition;
+        navigator.geolocation.watchPosition = geo.watchPosition;
+        navigator.geolocation.clearWatch = geo.clearWatch;
+    },
+    objects: {
+        File: { // exists natively, override
+            path: "cordova/plugin/File"
+        },
+        FileReader: { // exists natively, override
+            path: "cordova/plugin/FileReader"
+        },
+        MediaError: { // exists natively, override
+            path: "cordova/plugin/MediaError"
+        },
+        console: {
+            path: 'cordova/plugin/ios/console'
+        }
+    },
+    merges:{
+        Contact:{
+            path: "cordova/plugin/ios/Contact"
+        },
+        Entry:{
+            path: "cordova/plugin/ios/Entry"
+        },
+        FileReader:{
+            path: "cordova/plugin/ios/FileReader"
+        },
+        navigator:{
+            children:{
+                notification:{
+                    path:"cordova/plugin/ios/notification"
+                },
+                contacts:{
+                    path:"cordova/plugin/ios/contacts"
+=======
 // file: lib/android/exec.js
 define("cordova/exec", function(require, exports, module) {
 
@@ -1228,12 +1446,20 @@ module.exports = {
             children: {
                 notification: {
                     path: 'cordova/plugin/android/notification'
+>>>>>>> parent of 27fe610... update cordove
                 }
             }
         }
     }
 };
 
+<<<<<<< HEAD
+// use the native logger
+var logger = require("cordova/plugin/logger");
+logger.useConsole(false);
+
+=======
+>>>>>>> parent of 27fe610... update cordove
 });
 
 // file: lib/common/plugin/Acceleration.js
@@ -3827,6 +4053,8 @@ module.exports = accelerometer;
 
 });
 
+<<<<<<< HEAD
+=======
 // file: lib/android/plugin/android/app.js
 define("cordova/plugin/android/app", function(require, exports, module) {
 
@@ -4427,6 +4655,7 @@ module.exports = {
 
 });
 
+>>>>>>> parent of 27fe610... update cordove
 // file: lib/common/plugin/battery.js
 define("cordova/plugin/battery", function(require, exports, module) {
 
@@ -5759,6 +5988,283 @@ module.exports = globalization;
 
 });
 
+<<<<<<< HEAD
+// file: lib/ios/plugin/ios/Contact.js
+define("cordova/plugin/ios/Contact", function(require, exports, module) {
+
+var exec = require('cordova/exec'),
+    ContactError = require('cordova/plugin/ContactError');
+
+/**
+ * Provides iOS Contact.display API.
+ */
+module.exports = {
+    display : function(errorCB, options) {
+        /*
+         *    Display a contact using the iOS Contact Picker UI
+         *    NOT part of W3C spec so no official documentation
+         *
+         *    @param errorCB error callback
+         *    @param options object
+         *    allowsEditing: boolean AS STRING
+         *        "true" to allow editing the contact
+         *        "false" (default) display contact
+         */
+
+        if (this.id === null) {
+            if (typeof errorCB === "function") {
+                var errorObj = new ContactError(ContactError.UNKNOWN_ERROR);
+                errorCB(errorObj);
+            }
+        }
+        else {
+            exec(null, errorCB, "Contacts","displayContact", [this.id, options]);
+        }
+    }
+};
+
+});
+
+// file: lib/ios/plugin/ios/Entry.js
+define("cordova/plugin/ios/Entry", function(require, exports, module) {
+
+module.exports = {
+    toURL:function() {
+        // TODO: refactor path in a cross-platform way so we can eliminate
+        // these kinds of platform-specific hacks.
+        return "file://localhost" + this.fullPath;
+    },
+    toURI: function() {
+        console.log("DEPRECATED: Update your code to use 'toURL'");
+        return "file://localhost" + this.fullPath;
+    }
+};
+
+});
+
+// file: lib/ios/plugin/ios/FileReader.js
+define("cordova/plugin/ios/FileReader", function(require, exports, module) {
+
+var exec = require('cordova/exec'),
+    FileError = require('cordova/plugin/FileError'),
+    FileReader = require('cordova/plugin/FileReader'),
+    ProgressEvent = require('cordova/plugin/ProgressEvent');
+
+module.exports = {
+    readAsText:function(file, encoding) {
+        // Figure out pathing
+        this.fileName = '';
+        if (typeof file.fullPath === 'undefined') {
+            this.fileName = file;
+        } else {
+            this.fileName = file.fullPath;
+        }
+
+        // Already loading something
+        if (this.readyState == FileReader.LOADING) {
+            throw new FileError(FileError.INVALID_STATE_ERR);
+        }
+
+        // LOADING state
+        this.readyState = FileReader.LOADING;
+
+        // If loadstart callback
+        if (typeof this.onloadstart === "function") {
+            this.onloadstart(new ProgressEvent("loadstart", {target:this}));
+        }
+
+        // Default encoding is UTF-8
+        var enc = encoding ? encoding : "UTF-8";
+
+        var me = this;
+
+        // Read file
+        exec(
+            // Success callback
+            function(r) {
+                // If DONE (cancelled), then don't do anything
+                if (me.readyState === FileReader.DONE) {
+                    return;
+                }
+
+                // Save result
+                me.result = decodeURIComponent(r);
+
+                // If onload callback
+                if (typeof me.onload === "function") {
+                    me.onload(new ProgressEvent("load", {target:me}));
+                }
+
+                // DONE state
+                me.readyState = FileReader.DONE;
+
+                // If onloadend callback
+                if (typeof me.onloadend === "function") {
+                    me.onloadend(new ProgressEvent("loadend", {target:me}));
+                }
+            },
+            // Error callback
+            function(e) {
+                // If DONE (cancelled), then don't do anything
+                if (me.readyState === FileReader.DONE) {
+                    return;
+                }
+
+                // DONE state
+                me.readyState = FileReader.DONE;
+
+                // null result
+                me.result = null;
+
+                // Save error
+                me.error = new FileError(e);
+
+                // If onerror callback
+                if (typeof me.onerror === "function") {
+                    me.onerror(new ProgressEvent("error", {target:me}));
+                }
+
+                // If onloadend callback
+                if (typeof me.onloadend === "function") {
+                    me.onloadend(new ProgressEvent("loadend", {target:me}));
+                }
+            },
+        "File", "readAsText", [this.fileName, enc]);
+    }
+};
+
+});
+
+// file: lib/ios/plugin/ios/console.js
+define("cordova/plugin/ios/console", function(require, exports, module) {
+
+var exec = require('cordova/exec');
+
+/**
+ * create a nice string for an object
+ */
+function stringify(message) {
+    try {
+        if (typeof message === "object" && JSON && JSON.stringify) {
+            try {
+                return JSON.stringify(message);
+            }
+            catch (e) {
+                return "error JSON.stringify()ing argument: " + e;
+            }
+        } else {
+            return message.toString();
+        }
+    } catch (e) {
+        return e.toString();
+    }
+}
+
+/**
+ * Wrapper one of the console logging methods, so that
+ * the Cordova logging native is called, then the original.
+ */
+function wrappedMethod(console, method) {
+    var origMethod = console[method];
+
+    return function(message) {
+        exec(null, null,
+            'Debug Console', 'log',
+            [ stringify(message), { logLevel: method.toUpperCase() } ]
+        );
+
+        if (!origMethod) return;
+
+        origMethod.apply(console, arguments);
+    };
+}
+
+var console = window.console || {};
+
+// 2012-10-06 pmuellr - marking setLevel() method and logLevel property
+// on console as deprecated;
+// it didn't do anything useful, since the level constants weren't accessible
+// to anyone
+
+console.setLevel = function() {};
+console.logLevel = 0;
+
+// wrapper the logging messages
+
+var methods = ["log", "debug", "info", "warn", "error"];
+
+for (var i=0; i<methods.length; i++) {
+    var method = methods[i];
+
+    console[method] = wrappedMethod(console, method);
+}
+
+module.exports = console;
+
+});
+
+// file: lib/ios/plugin/ios/contacts.js
+define("cordova/plugin/ios/contacts", function(require, exports, module) {
+
+var exec = require('cordova/exec');
+
+/**
+ * Provides iOS enhanced contacts API.
+ */
+module.exports = {
+    newContactUI : function(successCallback) {
+        /*
+         *    Create a contact using the iOS Contact Picker UI
+         *    NOT part of W3C spec so no official documentation
+         *
+         * returns:  the id of the created contact as param to successCallback
+         */
+        exec(successCallback, null, "Contacts","newContact", []);
+    },
+    chooseContact : function(successCallback, options) {
+        /*
+         *    Select a contact using the iOS Contact Picker UI
+         *    NOT part of W3C spec so no official documentation
+         *
+         *    @param errorCB error callback
+         *    @param options object
+         *    allowsEditing: boolean AS STRING
+         *        "true" to allow editing the contact
+         *        "false" (default) display contact
+         *      fields: array of fields to return in contact object (see ContactOptions.fields)
+         *
+         *    @returns
+         *        id of contact selected
+         *        ContactObject
+         *            if no fields provided contact contains just id information
+         *            if fields provided contact object contains information for the specified fields
+         *
+         */
+         var win = function(result) {
+             var fullContact = require('cordova/plugin/contacts').create(result);
+            successCallback(fullContact.id, fullContact);
+       };
+        exec(win, null, "Contacts","chooseContact", [options]);
+    }
+};
+
+});
+
+// file: lib/ios/plugin/ios/notification.js
+define("cordova/plugin/ios/notification", function(require, exports, module) {
+
+var Media = require('cordova/plugin/Media');
+
+module.exports = {
+    beep:function(count) {
+        (new Media('beep.wav')).play();
+    }
+};
+
+});
+
+=======
+>>>>>>> parent of 27fe610... update cordove
 // file: lib/common/plugin/logger.js
 define("cordova/plugin/logger", function(require, exports, module) {
 
